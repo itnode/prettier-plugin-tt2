@@ -9,34 +9,34 @@ import {
 import { builders, utils } from "prettier/doc";
 import { parsers as htmlParsers } from "prettier/parser-html";
 import {
-  GoBlock,
-  GoInline,
-  GoInlineEndDelimiter,
-  GoInlineStartDelimiter,
-  GoMultiBlock,
-  GoNode,
-  GoRoot,
-  GoUnformattable,
+  TT2Block,
+  TT2Inline,
+  TT2InlineEndDelimiter,
+  TT2InlineStartDelimiter,
+  TT2MultiBlock,
+  TT2Node,
+  TT2Root,
+  TT2Unformattable,
   isBlock,
   isMultiBlock,
   isRoot,
-  parseGoTemplate,
+  parseTT2,
 } from "./parse";
 
 const htmlParser = htmlParsers.html;
-const PLUGIN_KEY = "go-template";
+const PLUGIN_KEY = "tt2";
 
-type ExtendedParserOptions = ParserOptions<GoNode> &
-  PrettierPluginGoTemplateParserOptions;
+type ExtendedParserOptions = ParserOptions<TT2Node> &
+  PrettierPluginTT2ParserOptions;
 
-export type PrettierPluginGoTemplateParserOptions = {
-  goTemplateBracketSpacing: boolean;
+export type PrettierPluginTT2ParserOptions = {
+  tt2BracketSpacing: boolean;
 };
 
 export const options: {
-  [K in keyof PrettierPluginGoTemplateParserOptions]: any;
+  [K in keyof PrettierPluginTT2ParserOptions]: any;
 } = {
-  goTemplateBracketSpacing: {
+  tt2BracketSpacing: {
     type: "boolean",
     category: "Global",
     description:
@@ -47,34 +47,30 @@ export const options: {
 
 export const languages: SupportLanguage[] = [
   {
-    name: "GoTemplate",
+    name: "TT2",
     parsers: [PLUGIN_KEY],
     extensions: [
-      ".go.html",
-      ".gohtml",
-      ".gotmpl",
-      ".go.tmpl",
-      ".tmpl",
-      ".tpl",
-      ".html.tmpl",
-      ".html.tpl",
+      ".tt2",
+      ".tt",
+      ".html.tt2",
+      ".html.tt"
     ],
-    vscodeLanguageIds: ["gotemplate", "gohtml", "GoTemplate", "GoHTML"],
+    vscodeLanguageIds: ["tt2", "TT2"],
   },
 ];
 export const parsers = {
-  [PLUGIN_KEY]: <Parser<GoNode>>{
+  [PLUGIN_KEY]: <Parser<TT2Node>>{
     astFormat: PLUGIN_KEY,
     preprocess: (text) =>
       // Cut away trailing newline to normalize formatting.
       text.endsWith("\n") ? text.slice(0, text.length - 1) : text,
-    parse: parseGoTemplate,
+    parse: parseTT2,
     locStart: (node) => node.index,
     locEnd: (node) => node.index + node.length,
   },
 };
 export const printers = {
-  [PLUGIN_KEY]: <Printer<GoNode>>{
+  [PLUGIN_KEY]: <Printer<TT2Node>>{
     print: (path, options: ExtendedParserOptions, print) => {
       const node = path.getNode();
 
@@ -102,7 +98,7 @@ export const printers = {
   },
 };
 
-const embed: Exclude<Printer<GoNode>["embed"], undefined> = (
+const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   path,
   print,
   textToDoc,
@@ -128,7 +124,7 @@ const embed: Exclude<Printer<GoNode>["embed"], undefined> = (
   const html = textToDoc(node.aliasedContent, {
     ...options,
     parser: "html",
-    parentParser: "go-template",
+    parentParser: "tt2",
   });
 
   const mapped = utils.stripTrailingHardline(
@@ -196,17 +192,17 @@ const embed: Exclude<Printer<GoNode>["embed"], undefined> = (
   });
 };
 
-type PrintFn = (path: FastPath<GoNode>) => builders.Doc;
+type PrintFn = (path: FastPath<TT2Node>) => builders.Doc;
 
 function printMultiBlock(
-  node: GoMultiBlock,
-  path: FastPath<GoNode>,
+  node: TT2MultiBlock,
+  path: FastPath<TT2Node>,
   print: PrintFn
 ): builders.Doc {
   return builders.concat([...path.map(print, "blocks")]);
 }
 
-function isFollowedByNode(node: GoInline): boolean {
+function isFollowedByNode(node: TT2Inline): boolean {
   const parent = getFirstBlockParent(node).parent;
   const start = parent.aliasedContent.indexOf(node.id) + node.id.length;
 
@@ -224,8 +220,8 @@ function isFollowedByNode(node: GoInline): boolean {
 }
 
 function printInline(
-  node: GoInline,
-  path: FastPath<GoNode>,
+  node: TT2Inline,
+  path: FastPath<TT2Node>,
   options: ExtendedParserOptions,
   print: PrintFn
 ): builders.Doc {
@@ -236,7 +232,7 @@ function printInline(
       : "";
 
   const result: builders.Doc[] = [
-    printStatement(node.statement, options.goTemplateBracketSpacing, {
+    printStatement(node.statement, options.tt2BracketSpacing, {
       start: node.startDelimiter,
       end: node.endDelimiter,
     }),
@@ -247,12 +243,12 @@ function printInline(
   });
 }
 
-function isBlockEnd(node: GoInline) {
+function isBlockEnd(node: TT2Inline) {
   const { parent } = getFirstBlockParent(node);
   return isBlock(parent) && parent.end === node;
 }
 
-function isBlockStart(node: GoInline) {
+function isBlockStart(node: TT2Inline) {
   const { parent } = getFirstBlockParent(node);
   return isBlock(parent) && parent.start === node;
 }
@@ -260,7 +256,7 @@ function isBlockStart(node: GoInline) {
 function printStatement(
   statement: string,
   addSpaces: boolean,
-  delimiter: { start: GoInlineStartDelimiter; end: GoInlineEndDelimiter } = {
+  delimiter: { start: TT2InlineStartDelimiter; end: TT2InlineEndDelimiter } = {
     start: "",
     end: "",
   }
@@ -293,7 +289,7 @@ function printStatement(
   );
 }
 
-function hasPrettierIgnoreLine(node: GoNode) {
+function hasPrettierIgnoreLine(node: TT2Node) {
   if (isRoot(node)) {
     return false;
   }
@@ -307,11 +303,11 @@ function hasPrettierIgnoreLine(node: GoNode) {
   return !!parent.aliasedContent.match(regex);
 }
 
-function isPrettierIgnoreBlock(node: GoNode) {
+function isPrettierIgnoreBlock(node: TT2Node) {
   return isBlock(node) && node.keyword === "prettier-ignore-start";
 }
 
-function hasNodeLinebreak(node: GoInline, source: string) {
+function hasNodeLinebreak(node: TT2Inline, source: string) {
   const start = node.index + node.length;
   const end = source.indexOf("\n", start);
   const suffix = source.substring(start, end);
@@ -319,7 +315,7 @@ function hasNodeLinebreak(node: GoInline, source: string) {
   return !suffix;
 }
 
-function isFollowedByEmptyLine(node: GoInline, source: string) {
+function isFollowedByEmptyLine(node: TT2Inline, source: string) {
   const start = node.index + node.length;
   const firstLineBreak = source.indexOf("\n", start);
   const secondLineBreak = source.indexOf("\n", firstLineBreak + 1);
@@ -333,8 +329,8 @@ function isFollowedByEmptyLine(node: GoInline, source: string) {
   );
 }
 
-function getFirstBlockParent(node: Exclude<GoNode, GoRoot>): {
-  parent: GoBlock | GoRoot;
+function getFirstBlockParent(node: Exclude<TT2Node, TT2Root>): {
+  parent: TT2Block | TT2Root;
   child: typeof node;
 } {
   let previous = node;
@@ -352,7 +348,7 @@ function getFirstBlockParent(node: Exclude<GoNode, GoRoot>): {
 }
 
 function printUnformattable(
-  node: GoUnformattable,
+  node: TT2Unformattable,
   options: ExtendedParserOptions
 ) {
   const start = options.originalText.lastIndexOf("\n", node.index - 1);

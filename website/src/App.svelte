@@ -3,7 +3,7 @@
   import pluginHtml from "prettier/parser-html";
   import pluginBabel from "prettier/parser-babel";
   import pluginCSS from "prettier/parser-postcss";
-  import * as pluginGoTemplate from "prettier-plugin-go-template";
+  import * as pluginTT2Template from "prettier-plugin-tt2";
 
   let input = `{{ if or .Prev .Next -}}
 {{ $p := where site.Pages }}
@@ -22,8 +22,8 @@
   function getFormattedInput(text: string): string {
     try {
       return prettier.format(text, {
-        parser: "go-template",
-        plugins: [pluginHtml, pluginBabel, pluginCSS, pluginGoTemplate],
+        parser: "tt2-template",
+        plugins: [pluginHtml, pluginBabel, pluginCSS, pluginTT2Template],
       });
     } catch (e) {
       return e.toString();

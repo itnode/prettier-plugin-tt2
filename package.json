@@ -1,23 +1,18 @@
 {
-  "name": "prettier-plugin-go-template",
+  "name": "prettier-plugin-tt2",
   "version": "0.0.13",
-  "description": "Prettier plugin for formatting Go & GoHugo templates.",
+  "description": "Prettier plugin for formatting Template Toolkit 2 templates.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/NiklasPor/prettier-plugin-go-template"
-  },
-  "author": {
-    "name": "Niklas Portmann",
-    "email": "niklaspor@gmail.com"
+    "url": "https://github.com/itnode/prettier-plugin-tt2"
   },
   "keywords": [
     "prettier",
     "plugin",
-    "go",
-    "hugo",
-    "gohugo",
+    "tt2",
     "template",
+    "perl",
     "html"
   ],
   "files": [

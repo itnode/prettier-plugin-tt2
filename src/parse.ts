@@ -1,14 +1,14 @@
 import { Parser } from "prettier";
 import { createIdGenerator } from "./create-id-generator";
 
-export const parseGoTemplate: Parser<GoNode>["parse"] = (
+export const parseTT2: Parser<TT2Node>["parse"] = (
   text,
   parsers,
   options
 ) => {
   const regex =
     /{{(?<startdelimiter>-|<|%|\/\*)?\s*(?<statement>(?<keyword>if|range|block|with|define|end|else|prettier-ignore-start|prettier-ignore-end)?[\s\S]*?)\s*(?<endDelimiter>-|>|%|\*\/)?}}|(?<unformattableScript><(script)((?!<)[\s\S])*>((?!<\/script)[\s\S])*?{{[\s\S]*?<\/(script)>)|(?<unformattableStyle><(style)((?!<)[\s\S])*>((?!<\/style)[\s\S])*?{{[\s\S]*?<\/(style)>)/g;
-  const root: GoRoot = {
+  const root: TT2Root = {
     type: "root",
     content: text,
     aliasedContent: "",
@@ -17,20 +17,20 @@ export const parseGoTemplate: Parser<GoNode>["parse"] = (
     contentStart: 0,
     length: text.length,
   };
-  const nodeStack: (GoBlock | GoRoot)[] = [root];
+  const nodeStack: (TT2Block | TT2Root)[] = [root];
   const getId = createIdGenerator();
 
   for (let match of text.matchAll(regex)) {
     const current = last(nodeStack);
-    const keyword = match.groups?.keyword as GoBlockKeyword | undefined;
+    const keyword = match.groups?.keyword as TT2BlockKeyword | undefined;
     const statement = match.groups?.statement;
     const unformattable =
       match.groups?.unformattableScript ?? match.groups?.unformattableStyle;
 
     const startDelimiter = (match.groups?.startdelimiter ??
-      "") as GoInlineStartDelimiter;
+      "") as TT2InlineStartDelimiter;
     const endDelimiter = (match.groups?.endDelimiter ??
-      "") as GoInlineEndDelimiter;
+      "") as TT2InlineEndDelimiter;
 
     if (current === undefined) {
       throw Error("Node stack empty.");
@@ -56,7 +56,7 @@ export const parseGoTemplate: Parser<GoNode>["parse"] = (
       throw Error("Formattable match without statement.");
     }
 
-    const inline: GoInline = {
+    const inline: TT2Inline = {
       index: match.index,
       length: match[0].length,
       startDelimiter,
@@ -88,7 +88,7 @@ export const parseGoTemplate: Parser<GoNode>["parse"] = (
 
       nodeStack.pop();
     } else if (isBlock(current) && keyword === "else") {
-      const nextChild: GoBlock = {
+      const nextChild: TT2Block = {
         type: "block",
         start: inline,
         end: null,
@@ -108,7 +108,7 @@ export const parseGoTemplate: Parser<GoNode>["parse"] = (
       if (isMultiBlock(current.parent)) {
         current.parent.blocks.push(nextChild);
       } else {
-        const multiBlock: GoMultiBlock = {
+        const multiBlock: TT2MultiBlock = {
           type: "double-block",
           parent: current.parent,
           index: current.index,
@@ -135,12 +135,12 @@ export const parseGoTemplate: Parser<GoNode>["parse"] = (
       nodeStack.pop();
       nodeStack.push(nextChild);
     } else if (keyword) {
-      const block: GoBlock = {
+      const block: TT2Block = {
         type: "block",
         start: inline,
         end: null,
         children: {},
-        keyword: keyword as GoBlockKeyword,
+        keyword: keyword as TT2BlockKeyword,
         index: match.index,
         parent: current,
         contentStart: match.index + match[0].length,
@@ -168,7 +168,7 @@ export const parseGoTemplate: Parser<GoNode>["parse"] = (
   return root;
 };
 
-function aliasNodeContent(current: GoBlock | GoRoot): string {
+function aliasNodeContent(current: TT2Block | TT2Root): string {
   let result = current.content;
 
   Object.entries(current.children)
@@ -188,14 +188,14 @@ function last<T>(array: T[]): T | undefined {
   return array[array.length - 1];
 }
 
-export type GoNode =
-  | GoRoot
-  | GoBlock
-  | GoInline
-  | GoMultiBlock
-  | GoUnformattable;
+export type TT2Node =
+  | TT2Root
+  | TT2Block
+  | TT2Inline
+  | TT2MultiBlock
+  | TT2Unformattable;
 
-export type GoBlockKeyword =
+export type TT2BlockKeyword =
   | "if"
   | "range"
   | "block"
@@ -206,8 +206,8 @@ export type GoBlockKeyword =
   | "prettier-ignore-end"
   | "end";
 
-export type GoRoot = { type: "root" } & Omit<
-  GoBlock,
+export type TT2Root = { type: "root" } & Omit<
+  TT2Block,
   | "type"
   | "keyword"
   | "parent"
@@ -219,64 +219,64 @@ export type GoRoot = { type: "root" } & Omit<
   | "end"
 >;
 
-export interface GoBaseNode<Type extends string> {
+export interface TT2BaseNode<Type extends string> {
   id: string;
   type: Type;
   index: number;
   length: number;
-  parent: GoBlock | GoRoot | GoMultiBlock;
+  parent: TT2Block | TT2Root | TT2MultiBlock;
 }
 
-export interface GoBlock extends GoBaseNode<"block">, WithDelimiter {
-  keyword: GoBlockKeyword;
+export interface TT2Block extends TT2BaseNode<"block">, WithDelimiter {
+  keyword: TT2BlockKeyword;
   children: {
-    [id: string]: GoNode;
+    [id: string]: TT2Node;
   };
-  start: GoInline;
-  end: GoInline | null;
+  start: TT2Inline;
+  end: TT2Inline | null;
   content: string;
   aliasedContent: string;
   contentStart: number;
 }
 
-export interface GoMultiBlock extends GoBaseNode<"double-block"> {
-  blocks: (GoBlock | GoMultiBlock)[];
-  keyword: GoBlockKeyword;
+export interface TT2MultiBlock extends TT2BaseNode<"double-block"> {
+  blocks: (TT2Block | TT2MultiBlock)[];
+  keyword: TT2BlockKeyword;
 }
 
-export type GoSharedDelimiter = "%" | "-" | "";
-export type GoInlineStartDelimiter = "<" | "/*" | GoSharedDelimiter;
-export type GoInlineEndDelimiter = ">" | "*/" | GoSharedDelimiter;
+export type TT2SharedDelimiter = "%" | "-" | "";
+export type TT2InlineStartDelimiter = "<" | "/*" | TT2SharedDelimiter;
+export type TT2InlineEndDelimiter = ">" | "*/" | TT2SharedDelimiter;
 
-export interface GoUnformattable extends GoBaseNode<"unformattable"> {
+export interface TT2Unformattable extends TT2BaseNode<"unformattable"> {
   content: string;
 }
 
 export interface WithDelimiter {
-  startDelimiter: GoInlineStartDelimiter;
-  endDelimiter: GoInlineEndDelimiter;
+  startDelimiter: TT2InlineStartDelimiter;
+  endDelimiter: TT2InlineEndDelimiter;
 }
 
-export interface GoInline extends GoBaseNode<"inline">, WithDelimiter {
+export interface TT2Inline extends TT2BaseNode<"inline">, WithDelimiter {
   statement: string;
 }
 
-export function isInline(node: GoNode): node is GoInline {
+export function isInline(node: TT2Node): node is TT2Inline {
   return node.type === "inline";
 }
 
-export function isBlock(node: GoNode): node is GoBlock {
+export function isBlock(node: TT2Node): node is TT2Block {
   return node.type === "block";
 }
 
-export function isMultiBlock(node: GoNode): node is GoMultiBlock {
+export function isMultiBlock(node: TT2Node): node is TT2MultiBlock {
   return node.type === "double-block";
 }
 
-export function isRoot(node: GoNode): node is GoRoot {
+export function isRoot(node: TT2Node): node is TT2Root {
   return node.type === "root";
 }
 
-export function isUnformattable(node: GoNode): node is GoRoot {
+export function isUnformattable(node: TT2Node): node is TT2Root {
   return node.type === "unformattable";
 }

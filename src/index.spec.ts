@@ -1,15 +1,15 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import * as prettier from "prettier";
-import * as GoTemplatePlugin from "./index";
+import * as TT2Plugin from "./index";
 
 const prettify = (
   code: string,
-  options: Partial<GoTemplatePlugin.PrettierPluginGoTemplateParserOptions>
+  options: Partial<TT2Plugin.PrettierPluginTT2ParserOptions>
 ) =>
   prettier.format(code, {
-    parser: "go-template" as any,
-    plugins: [GoTemplatePlugin],
+    parser: "tt2" as any,
+    plugins: [TT2Plugin],
     ...options,
   });
 
