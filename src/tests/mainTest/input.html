@@ -85,16 +85,18 @@ All done!
 %]
 
 [% META
-    title   = 'The Cat in the Hat'
+     title   = 'The Cat in the Hat'
      author  = 'Dr. Seuss'
      version = 1.23 
      year    = 2000
 %]
 
+[% test = BLOCK%]
 [% IF a %]
 a
 [* IF inclELSE *]
 [% ELSE %]
 b
 [* END *]
+[% END %]
 [% END %]

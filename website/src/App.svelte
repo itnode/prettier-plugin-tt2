@@ -5,24 +5,16 @@
   import pluginCSS from "prettier/parser-postcss";
   import * as pluginTT2Template from "prettier-plugin-tt2";
 
-  let input = `{{ if or .Prev .Next -}}
-{{ $p := where site.Pages }}
-<div class="my-navigation">
-{{ with $p.Next . -}}
-<a href="{{ .RelPermalink }}">
-<div class="row">
-<div class="cell py-2">
-  {{ .Title }} 
-</div> </div> </a>
-{{ end -}}
-</div>
-{{ end -}}`;
+  let input = `[% IF test %]
+<p>Test [% GET test %]</p>
+[% END %]
+`;
   $: output = getFormattedInput(input);
 
   function getFormattedInput(text: string): string {
     try {
       return prettier.format(text, {
-        parser: "tt2-template",
+        parser: "tt2",
         plugins: [pluginHtml, pluginBabel, pluginCSS, pluginTT2Template],
       });
     } catch (e) {

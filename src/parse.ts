@@ -1,13 +1,99 @@
 import { Parser } from "prettier";
 import { createIdGenerator } from "./create-id-generator";
 
+const regexDirective = /\[(?<tag>[%*])(?<chompBegin>[+-])?(?<ignoreDirective>#)?[^\S\r\n]*(?<content>[\S\s]*?)[^\S\r\n]*(?<chompEnd>[+-])?\1\]|(?<unformattableScript><(script)((?!<)[\s\S])*>((?!<\/script)[\s\S])*?\[(?:[%*])[\s\S]*?<\/(script)>)|(?<unformattableStyle><(style)((?!<)[\s\S])*>((?!<\/style)[\s\S])*?\[(?:[%*])[\s\S]*?<\/(style)>)/g;
+const regexContent = /(?<!#.*|(?:LAST|NEXT|BREAK)\s+)(?<isMacro>MACRO\s(?<macroName>[\s\S]+?)\s)?(?:(?<keyword>(?<IgnoreDirectives>SET|GET)|(?<BlockStartBlock>(?:(?:SET\s+?)?\S+?\s+=\s?)?BLOCK)|(?<BlockStartIf>IF)|(?<BlockContinueIf>ELSIF|ELSE)|(?<BlockStartTry>TRY)|(?<BlockContinueTry>CATCH|FINAL)|(?<BlockStartSwitch>SWITCH)|(?<BlockContinueCase>CASE)|(?<BlockStartMisc>UNLESS|FOREACH|FOR|WHILE|WRAPPER|(?<![^;\s]+?\s+)FILTER)|(?<BlockStartPerl>PERL|RAWPERL)|(?<BlockEnd>END))(?:\s*;\s*|\s[\s\S]+?;\s*|(?:\s[\s\S]*?)?$))/g;
+
+
+enum KeyW {
+  SimpleDirective,
+  StartBlock,
+  ContinueBlock,
+  CaseBlock,
+  EndBlock,
+}
+
+function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
+  if (match.groups === undefined) return [KeyW.SimpleDirective];
+  let mg: {[key: string]: string | undefined} = match.groups;
+
+  if (mg.ignoreDirective || !(mg.content !== undefined )) return [KeyW.SimpleDirective];
+  let inner = mg.content.matchAll(regexContent);
+
+  let res = [];
+  let openedBlocks: number = 0;
+
+  for (let i of inner) {
+    if (i.groups === undefined) continue;
+    let ig: {[key: string]: string | undefined} = i.groups;
+
+    if (ig.BlockEnd) {
+      
+      if (openedBlocks == 0) {
+        res.push(KeyW.EndBlock);
+      } else {
+        res.splice(res.lastIndexOf(KeyW.StartBlock));
+        openedBlocks -= 1;
+      }
+
+    } else if (ig.BlockStartIf) {
+      
+      res.push(KeyW.StartBlock);
+      openedBlocks += 1;
+
+    } else if (ig.BlockContinueIf) {
+
+      res.push(KeyW.ContinueBlock);
+
+    } else if (ig.BlockStartMisc) {
+
+      res.push(KeyW.StartBlock);
+      openedBlocks += 1;
+
+    } else if (ig.BlockStartBlock) {
+
+      res.push(KeyW.StartBlock);
+      openedBlocks += 1;
+
+    } else if (ig.BlockStartSwitch) {
+
+      res.push(KeyW.StartBlock);
+      openedBlocks += 1;
+
+    } else if (ig.BlockContinueCase) {
+      
+      res.push(KeyW.CaseBlock);
+
+    } else if (ig.BlockStartTry) {
+
+      res.push(KeyW.StartBlock);
+      openedBlocks += 1;
+
+    } else if (ig.BlockContinueTry) {
+
+      res.push(KeyW.ContinueBlock);
+
+    } else if (ig.BlockStartPerl) {
+      
+      res.push(KeyW.StartBlock);
+      openedBlocks += 1;
+
+    }
+
+  }
+
+  if (res.length == 0) return [KeyW.SimpleDirective];
+
+  return res;
+}
+
+
 export const parseTT2: Parser<TT2Node>["parse"] = (
   text,
   parsers,
   options
 ) => {
-  const regex =
-    /{{(?<startdelimiter>-|<|%|\/\*)?\s*(?<statement>(?<keyword>if|range|block|with|define|end|else|prettier-ignore-start|prettier-ignore-end)?[\s\S]*?)\s*(?<endDelimiter>-|>|%|\*\/)?}}|(?<unformattableScript><(script)((?!<)[\s\S])*>((?!<\/script)[\s\S])*?{{[\s\S]*?<\/(script)>)|(?<unformattableStyle><(style)((?!<)[\s\S])*>((?!<\/style)[\s\S])*?{{[\s\S]*?<\/(style)>)/g;
+  const regex = regexDirective;
   const root: TT2Root = {
     type: "root",
     content: text,
@@ -22,15 +108,14 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
 
   for (let match of text.matchAll(regex)) {
     const current = last(nodeStack);
-    const keyword = match.groups?.keyword as TT2BlockKeyword | undefined;
-    const statement = match.groups?.statement;
+    const keywordArr = handleTT2Dir(match);//match.groups?.keyword as TT2BlockKeyword | undefined;
+
+    const statement = match.groups?.content;
     const unformattable =
       match.groups?.unformattableScript ?? match.groups?.unformattableStyle;
 
-    const startDelimiter = (match.groups?.startdelimiter ??
-      "") as TT2InlineStartDelimiter;
-    const endDelimiter = (match.groups?.endDelimiter ??
-      "") as TT2InlineEndDelimiter;
+    const startDelimiter = ((match.groups?.tag ?? "") + (match.groups?.chompBegin ?? "")) as TT2InlineStartDelimiter;
+    const endDelimiter = ((match.groups?.chompEnd ?? "") + (match.groups?.tag ?? "")) as TT2InlineEndDelimiter;
 
     if (current === undefined) {
       throw Error("Node stack empty.");
@@ -67,99 +152,104 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       id,
     };
 
-    if (keyword === "end" || keyword === "prettier-ignore-end") {
-      if (current.type !== "block") {
-        throw Error("Encountered unexpected end keyword.");
-      }
-
-      current.length = match[0].length + match.index - current.index;
-      current.content = text.substring(current.contentStart, match.index);
-      current.aliasedContent = aliasNodeContent(current);
-      current.end = inline;
-
-      if (current.parent.type === "double-block") {
-        const firstChild = current.parent.blocks[0];
-        const lastChild =
-          current.parent.blocks[current.parent.blocks.length - 1];
-
-        current.parent.length =
-          lastChild.index + lastChild.length - firstChild.index;
-      }
-
-      nodeStack.pop();
-    } else if (isBlock(current) && keyword === "else") {
-      const nextChild: TT2Block = {
-        type: "block",
-        start: inline,
-        end: null,
-        children: {},
-        keyword: keyword,
-        index: match.index,
-        parent: current.parent,
-        contentStart: match.index + match[0].length,
-        content: "",
-        aliasedContent: "",
-        length: -1,
-        id: getId(),
-        startDelimiter,
-        endDelimiter,
-      };
-
-      if (isMultiBlock(current.parent)) {
-        current.parent.blocks.push(nextChild);
-      } else {
-        const multiBlock: TT2MultiBlock = {
-          type: "double-block",
-          parent: current.parent,
-          index: current.index,
-          length: -1,
-          keyword,
-          id: current.id,
-          blocks: [current, nextChild],
-        };
-        nextChild.parent = multiBlock;
-        current.parent = multiBlock;
-
-        if ("children" in multiBlock.parent) {
-          multiBlock.parent.children[multiBlock.id] = multiBlock;
-        } else {
-          throw Error("Could not find child in parent.");
+    for (let keyword of keywordArr) {
+      if (keyword === KeyW.EndBlock) {
+        if (current.type !== "block") {
+          throw Error("Encountered unexpected end keyword.");
         }
+  
+        current.length = match[0].length + match.index - current.index;
+        current.content = text.substring(current.contentStart, match.index);
+        current.aliasedContent = aliasNodeContent(current);
+        current.end = inline;
+  
+        if (current.parent.type === "double-block") {
+          const firstChild = current.parent.blocks[0];
+          const lastChild =
+            current.parent.blocks[current.parent.blocks.length - 1];
+  
+          current.parent.length =
+            lastChild.index + lastChild.length - firstChild.index;
+        }
+  
+        nodeStack.pop();
+      } else if (isBlock(current) && (keyword === KeyW.ContinueBlock || keyword == KeyW.CaseBlock)) {
+        const nextChild: TT2Block = {
+          type: "block",
+          start: inline,
+          end: null,
+          children: {},
+          keyword: keyword,
+          index: match.index,
+          parent: current.parent,
+          contentStart: match.index + match[0].length,
+          content: "",
+          aliasedContent: "",
+          length: -1,
+          id: getId(),
+          startDelimiter,
+          endDelimiter,
+        };
+  
+        if (isMultiBlock(current.parent)) {
+          current.parent.blocks.push(nextChild);
+        } else {
+          const multiBlock: TT2MultiBlock = {
+            type: "double-block",
+            parent: current.parent,
+            index: current.index,
+            length: -1,
+            keyword,
+            id: current.id,
+            blocks: [current, nextChild],
+          };
+          nextChild.parent = multiBlock;
+          current.parent = multiBlock;
+  
+          if ("children" in multiBlock.parent) {
+            multiBlock.parent.children[multiBlock.id] = multiBlock;
+          } else {
+            throw Error("Could not find child in parent.");
+          }
+        }
+  
+        current.id = getId();
+        current.length = match[0].length + match.index - current.index;
+        current.content = text.substring(current.contentStart, match.index);
+        current.aliasedContent = aliasNodeContent(current);
+  
+        nodeStack.pop();
+        nodeStack.push(nextChild);
+      } else if (keyword === KeyW.StartBlock) {
+        const block: TT2Block = {
+          type: "block",
+          start: inline,
+          end: null,
+          children: {},
+          keyword: keyword as TT2BlockKeyword,
+          index: match.index,
+          parent: current,
+          contentStart: match.index + match[0].length,
+          content: "",
+          aliasedContent: "",
+          length: -1,
+          id: getId(),
+          startDelimiter,
+          endDelimiter,
+        };
+
+        current.children[block.id] = block;
+        nodeStack.push(block);
+      } else {
+        current.children[inline.id] = inline;
       }
-
-      current.id = getId();
-      current.length = match[0].length + match.index - current.index;
-      current.content = text.substring(current.contentStart, match.index);
-      current.aliasedContent = aliasNodeContent(current);
-
-      nodeStack.pop();
-      nodeStack.push(nextChild);
-    } else if (keyword) {
-      const block: TT2Block = {
-        type: "block",
-        start: inline,
-        end: null,
-        children: {},
-        keyword: keyword as TT2BlockKeyword,
-        index: match.index,
-        parent: current,
-        contentStart: match.index + match[0].length,
-        content: "",
-        aliasedContent: "",
-        length: -1,
-        id: getId(),
-        startDelimiter,
-        endDelimiter,
-      };
-
-      current.children[block.id] = block;
-      nodeStack.push(block);
-    } else {
-      current.children[inline.id] = inline;
     }
+    
   }
 
   if (!isRoot(nodeStack.pop()!)) {
+    
+
     throw Error("Missing end block.");
   }
 
@@ -195,16 +285,7 @@ export type TT2Node =
   | TT2MultiBlock
   | TT2Unformattable;
 
-export type TT2BlockKeyword =
-  | "if"
-  | "range"
-  | "block"
-  | "with"
-  | "define"
-  | "else"
-  | "prettier-ignore-start"
-  | "prettier-ignore-end"
-  | "end";
+export type TT2BlockKeyword = KeyW;
 
 export type TT2Root = { type: "root" } & Omit<
   TT2Block,
@@ -244,9 +325,8 @@ export interface TT2MultiBlock extends TT2BaseNode<"double-block"> {
   keyword: TT2BlockKeyword;
 }
 
-export type TT2SharedDelimiter = "%" | "-" | "";
-export type TT2InlineStartDelimiter = "<" | "/*" | TT2SharedDelimiter;
-export type TT2InlineEndDelimiter = ">" | "*/" | TT2SharedDelimiter;
+export type TT2InlineStartDelimiter = "%" | "%+" | "%-" | "*" | "*+" | "*-" | "";
+export type TT2InlineEndDelimiter = "%" | "+%" | "-%" | "*" | "+*" | "-*" | "";
 
 export interface TT2Unformattable extends TT2BaseNode<"unformattable"> {
   content: string;

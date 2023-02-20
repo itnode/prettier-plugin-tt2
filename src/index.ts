@@ -110,12 +110,12 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     return null;
   }
 
-  if (hasPrettierIgnoreLine(node)) {
+  /*if (hasPrettierIgnoreLine(node)) {
     return options.originalText.substring(
       options.locStart(node),
       options.locEnd(node)
     );
-  }
+  }*/
 
   if (node.type !== "block" && node.type !== "root") {
     return null;
@@ -140,11 +140,11 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
           (result = doc.utils.mapDoc(result, (docNode) =>
             typeof docNode !== "string" || !docNode.includes(key)
               ? docNode
-              : builders.concat([
+              : [
                   docNode.substring(0, docNode.indexOf(key)),
                   path.call(print, "children", key),
                   docNode.substring(docNode.indexOf(key) + key.length),
-                ])
+                ]
           ))
       );
 
@@ -153,30 +153,30 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   );
 
   if (isRoot(node)) {
-    return builders.concat([mapped, builders.hardline]);
+    return [mapped, builders.hardline];
   }
 
   const startStatement = path.call(print, "start");
   const endStatement = node.end ? path.call(print, "end") : "";
 
-  if (isPrettierIgnoreBlock(node)) {
-    return builders.concat([
+  /*if (isPrettierIgnoreBlock(node)) {
+    return [
       utils.removeLines(path.call(print, "start")),
       printPlainBlock(node.content),
       endStatement,
-    ]);
-  }
+    ];
+  }*/
 
   const content = node.aliasedContent.trim()
-    ? builders.indent(builders.concat([builders.softline, mapped]))
+    ? builders.indent([builders.softline, mapped])
     : "";
 
-  const result = builders.concat([
+  const result = [
     startStatement,
     content,
     builders.softline,
     endStatement,
-  ]);
+  ];
 
   const emptyLine =
     !!node.end && isFollowedByEmptyLine(node.end, options.originalText)
@@ -184,10 +184,10 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
       : "";
 
   if (isMultiBlock(node.parent)) {
-    return builders.concat([result, emptyLine]);
+    return [result, emptyLine];
   }
 
-  return builders.group(builders.concat([builders.group(result), emptyLine]), {
+  return builders.group([builders.group(result), emptyLine], {
     shouldBreak: !!node.end && hasNodeLinebreak(node.end, options.originalText),
   });
 };
@@ -199,7 +199,7 @@ function printMultiBlock(
   path: FastPath<TT2Node>,
   print: PrintFn
 ): builders.Doc {
-  return builders.concat([...path.map(print, "blocks")]);
+  return [...path.map(print, "blocks")];
 }
 
 function isFollowedByNode(node: TT2Inline): boolean {
@@ -238,7 +238,7 @@ function printInline(
     }),
   ];
 
-  return builders.group(builders.concat([...result, emptyLine]), {
+  return builders.group([...result, emptyLine], {
     shouldBreak: hasNodeLinebreak(node, options.originalText) && !isBlockNode,
   });
 }
@@ -264,7 +264,7 @@ function printStatement(
   const space = addSpaces ? " " : "";
   const shouldBreak = statement.includes("\n");
 
-  const content = shouldBreak
+  /*const content = shouldBreak
     ? statement
         .trim()
         .split("\n")
@@ -273,23 +273,25 @@ function printStatement(
             ? builders.concat([line.trim(), builders.softline])
             : builders.indent(builders.concat([line.trim(), builders.softline]))
         )
-    : [statement.trim()];
+    : [statement.trim()];*/
+
+  const content = [statement];
 
   return builders.group(
-    builders.concat([
-      "{{",
+    [
+      "[",
       delimiter.start,
       space,
       ...content,
-      shouldBreak ? "" : space,
+      /*shouldBreak ? "" : */space,
       delimiter.end,
-      "}}",
-    ]),
-    { shouldBreak }
+      "]",
+    ]/*,
+    { shouldBreak }*/
   );
 }
 
-function hasPrettierIgnoreLine(node: TT2Node) {
+/*function hasPrettierIgnoreLine(node: TT2Node) {
   if (isRoot(node)) {
     return false;
   }
@@ -304,8 +306,8 @@ function hasPrettierIgnoreLine(node: TT2Node) {
 }
 
 function isPrettierIgnoreBlock(node: TT2Node) {
-  return isBlock(node) && node.keyword === "prettier-ignore-start";
-}
+  return false;//isBlock(node) && node.keyword === "prettier-ignore-start";
+}*/
 
 function hasNodeLinebreak(node: TT2Inline, source: string) {
   const start = node.index + node.length;
