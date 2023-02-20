@@ -14,6 +14,8 @@ enum KeyW {
 }
 
 function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
+  /* FIXME Tags mit mehreren Direktiven werden mehrfach geschrieben!! - muss geändert werden */
+
   if (match.groups === undefined) return [KeyW.SimpleDirective];
   let mg: {[key: string]: string | undefined} = match.groups;
 
