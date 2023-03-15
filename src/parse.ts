@@ -104,6 +104,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
     index: 0,
     contentStart: 0,
     length: text.length,
+    mustBeHidden: false
   };
   const nodeStack: (TT2Block | TT2Root)[] = [root];
   const getId = createIdGenerator();
@@ -116,7 +117,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
     const unformattable =
       match.groups?.unformattableScript ?? match.groups?.unformattableStyle;
 
-    const startDelimiter = ((match.groups?.tag ?? "") + (match.groups?.chompBegin ?? "")) as TT2InlineStartDelimiter;
+    const startDelimiter = ((match.groups?.tag ?? "") + (match.groups?.chompBegin ?? "")) + (match.groups?.ignoreDirective ?? "") as TT2InlineStartDelimiter;
     const endDelimiter = ((match.groups?.chompEnd ?? "") + (match.groups?.tag ?? "")) as TT2InlineEndDelimiter;
 
     if (current === undefined) {
@@ -135,6 +136,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
         length: match[0].length,
         content: unformattable,
         parent: current,
+        mustBeHidden: false
       };
       continue;
     }
@@ -143,7 +145,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       throw Error("Formattable match without statement.");
     }
 
-    const inline: TT2Inline = {
+    const inline_base: TT2Inline = {
       index: match.index,
       length: match[0].length,
       startDelimiter,
@@ -152,9 +154,15 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       type: "inline",
       statement,
       id,
+      mustBeHidden: false
     };
 
-    for (let keyword of keywordArr) {
+    for (let k_i = 0; k_i < keywordArr.length; k_i++ ) {
+      let keyword = keywordArr[k_i];
+      let isLast = k_i + 1 >= keywordArr.length;
+      let inline = structuredClone(inline_base) as TT2Inline; 
+      inline.mustBeHidden = !isLast;
+
       if (keyword === KeyW.EndBlock) {
         if (current.type !== "block") {
           throw Error("Encountered unexpected end keyword.");
@@ -191,6 +199,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           id: getId(),
           startDelimiter,
           endDelimiter,
+          mustBeHidden: !isLast
         };
   
         if (isMultiBlock(current.parent)) {
@@ -204,6 +213,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
             keyword,
             id: current.id,
             blocks: [current, nextChild],
+            mustBeHidden: !isLast
           };
           nextChild.parent = multiBlock;
           current.parent = multiBlock;
@@ -238,6 +248,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           id: getId(),
           startDelimiter,
           endDelimiter,
+          mustBeHidden: !isLast
         };
 
         current.children[block.id] = block;
@@ -308,6 +319,8 @@ export interface TT2BaseNode<Type extends string> {
   index: number;
   length: number;
   parent: TT2Block | TT2Root | TT2MultiBlock;
+
+  mustBeHidden: boolean
 }
 
 export interface TT2Block extends TT2BaseNode<"block">, WithDelimiter {
@@ -327,7 +340,8 @@ export interface TT2MultiBlock extends TT2BaseNode<"double-block"> {
   keyword: TT2BlockKeyword;
 }
 
-export type TT2InlineStartDelimiter = "%" | "%+" | "%-" | "*" | "*+" | "*-" | "";
+export type TT2InlineStartDelimiter =  "%" |  "%+" |  "%-" |  "*" |  "*+" |  "*-" |  "" |
+                                      "%#" | "%+#" | "%-#" | "*#" | "*+#" | "*-#" | "#";
 export type TT2InlineEndDelimiter = "%" | "+%" | "-%" | "*" | "+*" | "-*" | "";
 
 export interface TT2Unformattable extends TT2BaseNode<"unformattable"> {
@@ -362,3 +376,5 @@ export function isRoot(node: TT2Node): node is TT2Root {
 export function isUnformattable(node: TT2Node): node is TT2Root {
   return node.type === "unformattable";
 }
+
+declare function structuredClone(value: any): any;

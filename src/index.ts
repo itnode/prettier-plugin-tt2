@@ -1,6 +1,6 @@
 import {
   doc,
-  FastPath,
+  AstPath,
   Parser,
   ParserOptions,
   Printer,
@@ -121,6 +121,8 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     return null;
   }
 
+  if (node.mustBeHidden) return [];
+
   const html = textToDoc(node.aliasedContent, {
     ...options,
     parser: "html",
@@ -142,7 +144,8 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
               ? docNode
               : [
                   docNode.substring(0, docNode.indexOf(key)),
-                  path.call(print, "children", key),
+                  path.call<any,any,any>(print, "children", key),
+
                   docNode.substring(docNode.indexOf(key) + key.length),
                 ]
           ))
@@ -157,7 +160,7 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   }
 
   const startStatement = path.call(print, "start");
-  const endStatement = node.end ? path.call(print, "end") : "";
+  const endStatement = node.end ? path.call<any,any>(print, "end") : "";
 
   /*if (isPrettierIgnoreBlock(node)) {
     return [
@@ -187,19 +190,21 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     return [result, emptyLine];
   }
 
+  
+
   return builders.group([builders.group(result), emptyLine], {
     shouldBreak: !!node.end && hasNodeLinebreak(node.end, options.originalText),
   });
 };
 
-type PrintFn = (path: FastPath<TT2Node>) => builders.Doc;
+type PrintFn = (path: AstPath<TT2Node>) => builders.Doc;
 
 function printMultiBlock(
   node: TT2MultiBlock,
-  path: FastPath<TT2Node>,
+  path: AstPath<TT2Node>,
   print: PrintFn
 ): builders.Doc {
-  return [...path.map(print, "blocks")];
+  return path.map(print, "blocks");
 }
 
 function isFollowedByNode(node: TT2Inline): boolean {
@@ -221,10 +226,11 @@ function isFollowedByNode(node: TT2Inline): boolean {
 
 function printInline(
   node: TT2Inline,
-  path: FastPath<TT2Node>,
+  path: AstPath<TT2Node>,
   options: ExtendedParserOptions,
   print: PrintFn
 ): builders.Doc {
+
   const isBlockNode = isBlockEnd(node) || isBlockStart(node);
   const emptyLine =
     isFollowedByEmptyLine(node, options.originalText) && isFollowedByNode(node)
@@ -233,7 +239,7 @@ function printInline(
 
   const result: builders.Doc[] = [
     printStatement(node.statement, options.tt2BracketSpacing, {
-      start: node.startDelimiter,
+      start: node.startDelimiter, 
       end: node.endDelimiter,
     }),
   ];
@@ -370,14 +376,14 @@ function printPlainBlock(text: string, hardlines = true): builders.Doc {
     (value, i) => !(i == 0 || i == lines.length - 1) || !isTextEmpty(value)
   );
 
-  return builders.concat([
+  return [
     ...segments.map((content, i) =>
-      builders.concat([
+      [
         hardlines || i ? builders.hardline : "",
         builders.trim,
         content,
-      ])
+      ]
     ),
     hardlines ? builders.hardline : "",
-  ]);
+  ];
 }
