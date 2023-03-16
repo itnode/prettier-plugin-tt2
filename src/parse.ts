@@ -89,6 +89,10 @@ function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
   return res;
 }
 
+let sourceNumber = 0;
+function getSourceNumber(): number {
+  return sourceNumber++;
+}
 
 export const parseTT2: Parser<TT2Node>["parse"] = (
   text,
@@ -104,12 +108,15 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
     index: 0,
     contentStart: 0,
     length: text.length,
-    mustBeHidden: false
+
+    source: getSourceNumber()
   };
   const nodeStack: (TT2Block | TT2Root)[] = [root];
   const getId = createIdGenerator();
 
   for (let match of text.matchAll(regex)) {
+    let sourceNumber = getSourceNumber();
+
     const current = last(nodeStack);
     const keywordArr = handleTT2Dir(match);//match.groups?.keyword as TT2BlockKeyword | undefined;
 
@@ -136,7 +143,8 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
         length: match[0].length,
         content: unformattable,
         parent: current,
-        mustBeHidden: false
+
+        source: sourceNumber
       };
       continue;
     }
@@ -154,14 +162,33 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       type: "inline",
       statement,
       id,
-      mustBeHidden: false
+
+      source: sourceNumber
     };
 
     for (let k_i = 0; k_i < keywordArr.length; k_i++ ) {
+      let current = last(nodeStack);
+
+      if (current === undefined) {
+        throw Error("Node stack empty.");
+      }
+
       let keyword = keywordArr[k_i];
-      let isLast = k_i + 1 >= keywordArr.length;
-      let inline = structuredClone(inline_base) as TT2Inline; 
-      inline.mustBeHidden = !isLast;
+
+      let id = inline_base.id + "__"+k_i+"__";
+
+      let inline: TT2Inline = {
+        index: inline_base.index,
+        length: inline_base.length,
+        startDelimiter: inline_base.startDelimiter,
+        endDelimiter: inline_base.endDelimiter,
+        parent: current!,
+        type: inline_base.type,
+        statement: inline_base.statement,
+        id: id,
+
+        source: sourceNumber
+      };
 
       if (keyword === KeyW.EndBlock) {
         if (current.type !== "block") {
@@ -199,7 +226,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           id: getId(),
           startDelimiter,
           endDelimiter,
-          mustBeHidden: !isLast
+          source: sourceNumber
         };
   
         if (isMultiBlock(current.parent)) {
@@ -213,13 +240,14 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
             keyword,
             id: current.id,
             blocks: [current, nextChild],
-            mustBeHidden: !isLast
+            source: sourceNumber
           };
           nextChild.parent = multiBlock;
           current.parent = multiBlock;
   
           if ("children" in multiBlock.parent) {
             multiBlock.parent.children[multiBlock.id] = multiBlock;
+            
           } else {
             throw Error("Could not find child in parent.");
           }
@@ -248,7 +276,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           id: getId(),
           startDelimiter,
           endDelimiter,
-          mustBeHidden: !isLast
+          source: sourceNumber
         };
 
         current.children[block.id] = block;
@@ -256,6 +284,9 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       } else {
         current.children[inline.id] = inline;
       }
+
+      
+
     }
     
   }
@@ -274,14 +305,19 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
 function aliasNodeContent(current: TT2Block | TT2Root): string {
   let result = current.content;
 
+  let sourceAliased = new Set();
+
   Object.entries(current.children)
     .sort(([_, node1], [__, node2]) => node2.index - node1.index)
     .forEach(
-      ([id, node]) =>
-        (result =
-          result.substring(0, node.index - current.contentStart) +
-          id +
-          result.substring(node.index + node.length - current.contentStart))
+      ([id, node]) => {
+        if (sourceAliased.has(node.source)) return;
+
+        sourceAliased.add(node.source);
+        result = result.substring(0, node.index - current.contentStart) +
+                  id +
+                  result.substring(node.index + node.length - current.contentStart);
+      }
     );
 
   return result;
@@ -320,7 +356,7 @@ export interface TT2BaseNode<Type extends string> {
   length: number;
   parent: TT2Block | TT2Root | TT2MultiBlock;
 
-  mustBeHidden: boolean
+  source: number
 }
 
 export interface TT2Block extends TT2BaseNode<"block">, WithDelimiter {
@@ -376,5 +412,3 @@ export function isRoot(node: TT2Node): node is TT2Root {
 export function isUnformattable(node: TT2Node): node is TT2Root {
   return node.type === "unformattable";
 }
-
-declare function structuredClone(value: any): any;

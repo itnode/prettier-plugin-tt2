@@ -69,10 +69,16 @@ export const parsers = {
     locEnd: (node) => node.index + node.length,
   },
 };
+
+let printentSources = new Set();
+
 export const printers = {
   [PLUGIN_KEY]: <Printer<TT2Node>>{
     print: (path, options: ExtendedParserOptions, print) => {
       const node = path.getNode();
+
+      if (printentSources.has(node?.source)) return "";
+      else printentSources.add(node?.source);      
 
       switch (node?.type) {
         case "inline":
@@ -110,7 +116,8 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     return null;
   }
 
-  /*if (hasPrettierIgnoreLine(node)) {
+  /*if (hasPERLLine(node)) console.log("---",node.type,node.specialAction);
+  if (hasPERLLine(node)) {
     return options.originalText.substring(
       options.locStart(node),
       options.locEnd(node)
@@ -120,8 +127,6 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   if (node.type !== "block" && node.type !== "root") {
     return null;
   }
-
-  if (node.mustBeHidden) return [];
 
   const html = textToDoc(node.aliasedContent, {
     ...options,
@@ -145,7 +150,6 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
               : [
                   docNode.substring(0, docNode.indexOf(key)),
                   path.call<any,any,any>(print, "children", key),
-
                   docNode.substring(docNode.indexOf(key) + key.length),
                 ]
           ))
@@ -162,7 +166,7 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   const startStatement = path.call(print, "start");
   const endStatement = node.end ? path.call<any,any>(print, "end") : "";
 
-  /*if (isPrettierIgnoreBlock(node)) {
+  /*if (node.specialAction === SpecialAction.IgnoreContent) {
     return [
       utils.removeLines(path.call(print, "start")),
       printPlainBlock(node.content),
@@ -231,6 +235,8 @@ function printInline(
   print: PrintFn
 ): builders.Doc {
 
+
+
   const isBlockNode = isBlockEnd(node) || isBlockStart(node);
   const emptyLine =
     isFollowedByEmptyLine(node, options.originalText) && isFollowedByNode(node)
@@ -296,24 +302,6 @@ function printStatement(
     { shouldBreak }*/
   );
 }
-
-/*function hasPrettierIgnoreLine(node: TT2Node) {
-  if (isRoot(node)) {
-    return false;
-  }
-
-  const { parent, child } = getFirstBlockParent(node);
-
-  const regex = new RegExp(
-    `(?:<!--|{{).*?prettier-ignore.*?(?:-->|}})\n.*${child.id}`
-  );
-
-  return !!parent.aliasedContent.match(regex);
-}
-
-function isPrettierIgnoreBlock(node: TT2Node) {
-  return false;//isBlock(node) && node.keyword === "prettier-ignore-start";
-}*/
 
 function hasNodeLinebreak(node: TT2Inline, source: string) {
   const start = node.index + node.length;
