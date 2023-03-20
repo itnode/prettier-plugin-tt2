@@ -121,8 +121,6 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     return null;
   }
 
-  if (node.mustBeHidden) return [];
-
   const html = textToDoc(node.aliasedContent, {
     ...options,
     parser: "html",

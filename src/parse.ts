@@ -103,8 +103,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
     children: {},
     index: 0,
     contentStart: 0,
-    length: text.length,
-    mustBeHidden: false
+    length: text.length
   };
   const nodeStack: (TT2Block | TT2Root)[] = [root];
   const getId = createIdGenerator();
@@ -135,8 +134,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
         index: match.index,
         length: match[0].length,
         content: unformattable,
-        parent: current,
-        mustBeHidden: false
+        parent: current
       };
       continue;
     }
@@ -145,7 +143,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       throw Error("Formattable match without statement.");
     }
 
-    const inline_base: TT2Inline = {
+    const inline: TT2Inline = {
       index: match.index,
       length: match[0].length,
       startDelimiter,
@@ -153,15 +151,11 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       parent: current!,
       type: "inline",
       statement,
-      id,
-      mustBeHidden: false
+      id
     };
 
-    for (let k_i = 0; k_i < keywordArr.length; k_i++ ) {
-      let keyword = keywordArr[k_i];
-      let isLast = k_i + 1 >= keywordArr.length;
-      let inline = structuredClone(inline_base) as TT2Inline; 
-      inline.mustBeHidden = !isLast;
+    if (keywordArr.length == 1) {
+      let keyword = keywordArr[0];
 
       if (keyword === KeyW.EndBlock) {
         if (current.type !== "block") {
@@ -198,8 +192,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           length: -1,
           id: getId(),
           startDelimiter,
-          endDelimiter,
-          mustBeHidden: !isLast
+          endDelimiter
         };
   
         if (isMultiBlock(current.parent)) {
@@ -212,8 +205,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
             length: -1,
             keyword,
             id: current.id,
-            blocks: [current, nextChild],
-            mustBeHidden: !isLast
+            blocks: [current, nextChild]
           };
           nextChild.parent = multiBlock;
           current.parent = multiBlock;
@@ -247,8 +239,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           length: -1,
           id: getId(),
           startDelimiter,
-          endDelimiter,
-          mustBeHidden: !isLast
+          endDelimiter
         };
 
         current.children[block.id] = block;
@@ -256,13 +247,13 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
       } else {
         current.children[inline.id] = inline;
       }
+    } else if (keywordArr.length > 1) {
+      current.children[inline.id] = inline;
     }
     
   }
 
   if (!isRoot(nodeStack.pop()!)) {
-    
-
     throw Error("Missing end block.");
   }
 
@@ -319,8 +310,6 @@ export interface TT2BaseNode<Type extends string> {
   index: number;
   length: number;
   parent: TT2Block | TT2Root | TT2MultiBlock;
-
-  mustBeHidden: boolean
 }
 
 export interface TT2Block extends TT2BaseNode<"block">, WithDelimiter {
