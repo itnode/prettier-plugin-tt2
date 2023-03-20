@@ -2,20 +2,20 @@ import { Parser } from "prettier";
 import { createIdGenerator } from "./create-id-generator";
 
 const regexDirective = /\[(?<tag>[%*])(?<chompBegin>[+-])?(?<ignoreDirective>#)?[^\S\r\n]*(?<content>[\S\s]*?)[^\S\r\n]*(?<chompEnd>[+-])?\1\]|(?<unformattableScript><(script)((?!<)[\s\S])*>((?!<\/script)[\s\S])*?\[(?:[%*])[\s\S]*?<\/(script)>)|(?<unformattableStyle><(style)((?!<)[\s\S])*>((?!<\/style)[\s\S])*?\[(?:[%*])[\s\S]*?<\/(style)>)/g;
-const regexContent = /(?<!#.*|(?:LAST|NEXT|BREAK)\s+)(?<isMacro>MACRO\s(?<macroName>[\s\S]+?)\s)?(?:(?<keyword>(?<IgnoreDirectives>SET|GET)|(?<BlockStartBlock>(?:(?:SET\s+?)?\S+?\s+=\s?)?BLOCK)|(?<BlockStartIf>IF)|(?<BlockContinueIf>ELSIF|ELSE)|(?<BlockStartTry>TRY)|(?<BlockContinueTry>CATCH|FINAL)|(?<BlockStartSwitch>SWITCH)|(?<BlockContinueCase>CASE)|(?<BlockStartMisc>UNLESS|FOREACH|FOR|WHILE|WRAPPER|(?<![^;\s]+?\s+)FILTER)|(?<BlockStartPerl>PERL|RAWPERL)|(?<BlockEnd>END))(?:\s'[\s\S]*?')?(?:\s"[\s\S]*?")?(?:\s*;\s*|\s[\s\S]+?;\s*|(?:\s[\s\S]*?)?$))/g;
+const regexContent = /(?<!#.*|(?:LAST|NEXT|BREAK)\s+)(?<isMacro>MACRO\s(?<macroName>[\s\S]+?)\s)?(?:(?<keyword>(?<IgnoreDirectives>SET|GET)|(?<BlockStartBlock>(?:(?:SET\s+?)?\S+?\s+=\s?)?BLOCK)|(?<BlockStartIf>IF)|(?<BlockContinueIf>ELSIF|ELSE)|(?<BlockStartTry>TRY)|(?<BlockContinueTry>CATCH|FINAL)|(?<BlockStartSwitch>SWITCH)|(?<BlockContinueCase>CASE)|(?<BlockStartMisc>UNLESS|FOREACH|FOR|WHILE|WRAPPER|(?<![^;\s]+?\s+)FILTER)|(?<BlockStartPerl>PERL|RAWPERL)|(?<BlockEnd>END))(?:(?:'[\s\S]*?')|(?:[^;'"]*?)|(?:"[\s\S]*?"))*?(?:\s*;\s*|\s[\s\S]+?;\s*|(?:\s[\s\S]*?)?$))/g;
 
 
-enum KeyW {
+export enum KeyW {
   SimpleDirective,
   StartBlock,
   ContinueBlock,
   CaseBlock,
   EndBlock,
+
+  PerlBlock
 }
 
 function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
-  /* FIXME Tags mit mehreren Direktiven werden mehrfach geschrieben!! - muss geändert werden */
-
   if (match.groups === undefined) return [KeyW.SimpleDirective];
   let mg: {[key: string]: string | undefined} = match.groups;
 
@@ -77,7 +77,7 @@ function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
 
     } else if (ig.BlockStartPerl) {
       
-      res.push(KeyW.StartBlock);
+      res.push(KeyW.PerlBlock);
       openedBlocks += 1;
 
     }
@@ -224,7 +224,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
   
         nodeStack.pop();
         nodeStack.push(nextChild);
-      } else if (keyword === KeyW.StartBlock) {
+      } else if (keyword === KeyW.StartBlock || keyword === KeyW.PerlBlock) {
         const block: TT2Block = {
           type: "block",
           start: inline,
@@ -322,11 +322,15 @@ export interface TT2Block extends TT2BaseNode<"block">, WithDelimiter {
   content: string;
   aliasedContent: string;
   contentStart: number;
+
+  subContentHasLinebreak?: boolean;
 }
 
 export interface TT2MultiBlock extends TT2BaseNode<"double-block"> {
   blocks: (TT2Block | TT2MultiBlock)[];
   keyword: TT2BlockKeyword;
+
+  subContentHasLinebreak?: boolean;
 }
 
 export type TT2InlineStartDelimiter =  "%" |  "%+" |  "%-" |  "*" |  "*+" |  "*-" |  "" |

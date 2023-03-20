@@ -8,6 +8,7 @@ import {
 } from "prettier";
 import { builders, utils } from "prettier/doc";
 import { parsers as htmlParsers } from "prettier/parser-html";
+import { createIdGenerator } from "./create-id-generator";
 import {
   TT2Block,
   TT2Inline,
@@ -21,6 +22,7 @@ import {
   isMultiBlock,
   isRoot,
   parseTT2,
+  KeyW,
 } from "./parse";
 
 const htmlParser = htmlParsers.html;
@@ -69,8 +71,57 @@ export const parsers = {
     locEnd: (node) => node.index + node.length,
   },
 };
+
+
+function hasSubContentLinebreak(node: TT2Block | TT2MultiBlock | TT2Root) {
+  if (node.type == "double-block") {
+    for (let block of node.blocks) { if (hasSubContentLinebreak(block)) return true; }
+  } else {
+    if (node.aliasedContent.includes("\n")) return true;
+
+    for (let child_node of Object.values(node.children)) {
+      if (child_node.type == "block" || child_node.type == "root" || child_node.type == "double-block") {
+        if (hasSubContentLinebreak(child_node)) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function setSubContentLinebreak(node: TT2Block | TT2MultiBlock | TT2Root): boolean {
+  node.subContentHasLinebreak = false;
+
+  if (node.type == "double-block") {
+    node.subContentHasLinebreak = hasSubContentLinebreak(node);
+
+    for (let block of node.blocks) {
+      setSubContentLinebreak(block);
+
+      block.subContentHasLinebreak = block.subContentHasLinebreak || node.subContentHasLinebreak;
+    }
+  } else {
+    if (node.aliasedContent.includes("\n")) 
+      node.subContentHasLinebreak = true;
+    
+    for (let child_node of Object.values(node.children)) {
+      if (child_node.type == "block" || child_node.type == "root" || child_node.type == "double-block") {
+        if (setSubContentLinebreak(child_node)) node.subContentHasLinebreak = true;
+      }
+    }
+
+  }
+
+  return node.subContentHasLinebreak;
+}
+
 export const printers = {
-  [PLUGIN_KEY]: <Printer<TT2Node>>{
+  [PLUGIN_KEY]: <Printer<TT2Node> & {preprocess: (ast: TT2Node,options: any)=>TT2Node}>{
+    preprocess: (ast: TT2Node,options: any) => {
+      if (ast.type == "root" || ast.type == "block" || ast.type == "double-block") 
+          setSubContentLinebreak(ast);
+      return ast;
+    },
     print: (path, options: ExtendedParserOptions, print) => {
       const node = path.getNode();
 
@@ -120,37 +171,38 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   if (node.type !== "block" && node.type !== "root") {
     return null;
   }
+  
 
   const html = textToDoc(node.aliasedContent, {
     ...options,
     parser: "html",
     parentParser: "tt2",
+    htmlWhitespaceSensitivity: "strict"
   });
+  
+  
+  const mapped = utils.stripTrailingHardline(utils.mapDoc(html, (currentDoc) => {
+    if (typeof currentDoc !== "string") {
+      return currentDoc;
+    }
 
-  const mapped = utils.stripTrailingHardline(
-    utils.mapDoc(html, (currentDoc) => {
-      if (typeof currentDoc !== "string") {
-        return currentDoc;
-      }
+    let result: builders.Doc = currentDoc;
 
-      let result: builders.Doc = currentDoc;
+    Object.keys(node.children).forEach(
+      (key) =>
+        (result = doc.utils.mapDoc(result, (docNode) =>
+          typeof docNode !== "string" || !docNode.includes(key)
+            ? docNode
+            : [
+                docNode.substring(0, docNode.indexOf(key)),
+                path.call<any,any,any>(print, "children", key),
+                docNode.substring(docNode.indexOf(key) + key.length),
+              ]
+        ))
+    );
 
-      Object.keys(node.children).forEach(
-        (key) =>
-          (result = doc.utils.mapDoc(result, (docNode) =>
-            typeof docNode !== "string" || !docNode.includes(key)
-              ? docNode
-              : [
-                  docNode.substring(0, docNode.indexOf(key)),
-                  path.call<any,any,any>(print, "children", key),
-                  docNode.substring(docNode.indexOf(key) + key.length),
-                ]
-          ))
-      );
-
-      return result;
-    })
-  );
+    return result;
+  }));
 
   if (isRoot(node)) {
     return [mapped, builders.hardline];
@@ -167,30 +219,47 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     ];
   }*/
 
-  const content = node.aliasedContent.trim()
-    ? builders.indent([builders.softline, mapped])
-    : "";
+  const usePlainTextInner = node.keyword === KeyW.PerlBlock;
+  const hasSomelineBreakInContent = node.subContentHasLinebreak;
 
-  const result = [
+  let proto_content;
+  if (usePlainTextInner) {
+    proto_content = hasSomelineBreakInContent ? 
+      printIndentedPerlBlock(node.content) : 
+      node.content;
+  } else {
+    proto_content = hasSomelineBreakInContent
+      ? builders.indent([builders.hardline, mapped])
+      : mapped;
+  }
+  const content = proto_content;
+  
+  //TODO: Testen ob hier Teil der Fehler entstehen
+  const trimSplit = (!hasSomelineBreakInContent && node.aliasedContent.trim() !== node.aliasedContent)
+        ? node.aliasedContent.split(node.aliasedContent.trim()) : "";
+  const beforeContent = trimSplit.length > 0 ? trimSplit[0] : "";
+  const afterContent = trimSplit.length > 1 ? trimSplit[1] : "";
+
+  const result: doc.builders.Doc = [
     startStatement,
+    beforeContent,
     content,
-    builders.softline,
+    afterContent,
+    hasSomelineBreakInContent && !usePlainTextInner ? builders.hardline : "",
     endStatement,
   ];
 
-  const emptyLine =
+  const emptyLine = 
     !!node.end && isFollowedByEmptyLine(node.end, options.originalText)
-      ? builders.softline
+      ? builders.hardline
       : "";
 
   if (isMultiBlock(node.parent)) {
     return [result, emptyLine];
   }
 
-  
-
-  return builders.group([builders.group(result), emptyLine], {
-    shouldBreak: !!node.end && hasNodeLinebreak(node.end, options.originalText),
+  return builders.group([builders.group(result), emptyLine], { //TODO: Änderung rückgangig machen?
+    shouldBreak: true//!!node.end && hasNodeLinebreak(node.end, options.originalText),
   });
 };
 
@@ -231,7 +300,7 @@ function printInline(
   const isBlockNode = isBlockEnd(node) || isBlockStart(node);
   const emptyLine =
     isFollowedByEmptyLine(node, options.originalText) && isFollowedByNode(node)
-      ? builders.softline
+      ? builders.hardline
       : "";
 
   const result: builders.Doc[] = [
@@ -265,7 +334,6 @@ function printStatement(
   }
 ) {
   const space = addSpaces ? " " : "";
-  const shouldBreak = statement.includes("\n");
 
   /*const content = shouldBreak
     ? statement
@@ -273,24 +341,22 @@ function printStatement(
         .split("\n")
         .map((line, _, array) =>
           array.indexOf(line) === array.length - 1
-            ? builders.concat([line.trim(), builders.softline])
-            : builders.indent(builders.concat([line.trim(), builders.softline]))
+            ? [line.trim(), builders.softline]
+            : builders.indent([line.trim(), builders.softline])
         )
     : [statement.trim()];*/
-
-  const content = [statement];
 
   return builders.group(
     [
       "[",
       delimiter.start,
-      space,
-      ...content,
-      /*shouldBreak ? "" : */space,
+      delimiter.start.includes("#") ? "" : space,
+      statement,
+      statement.endsWith("\n") ? "" : space,
       delimiter.end,
       "]",
-    ]/*,
-    { shouldBreak }*/
+    ],
+    /*{ shouldBreak }*/
   );
 }
 
@@ -361,10 +427,10 @@ function printUnformattable(
   const lineWithoutAdditionalContent =
     line.replace(node.content, "").match(/\s*$/)?.[0] ?? "";
 
-  return printPlainBlock(lineWithoutAdditionalContent + node.content, false);
+  return printUnformattablePlainBlock(lineWithoutAdditionalContent + node.content, false);
 }
 
-function printPlainBlock(text: string, hardlines = true): builders.Doc {
+function printUnformattablePlainBlock(text: string, hardlines = true): builders.Doc {
   const isTextEmpty = (input: string) => !!input.match(/^\s*$/);
 
   const lines = text.split("\n");
@@ -383,4 +449,19 @@ function printPlainBlock(text: string, hardlines = true): builders.Doc {
     ),
     hardlines ? builders.hardline : "",
   ];
+}
+
+
+function printIndentedPerlBlock(text: string): builders.Doc {
+  const lines = text.split("\n");
+
+  return builders.indent([
+    ...lines.map((content,i) =>
+      [
+        i > 0 ? builders.hardline : "",
+        content.trim(),
+      ]
+    ),
+    builders.hardline,
+  ]);
 }

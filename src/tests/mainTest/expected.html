@@ -32,7 +32,9 @@
 %]
 
 [% IF title %]
-  <span class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"></span>
+  <span
+    class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"
+  ></span>
 [% ELSE %]
   [% INCLUDE other/header  title="Some Other Title"; %]
 [% END %]
@@ -47,13 +49,14 @@
 [% END %]
 
 [% FOREACH j IN items %]
-  [% j %]
-  [% LAST IF condition %]
+  [% j %][% LAST IF condition %]
   [% NEXT UNLESS otherCondition %]
 [% END %]
+[% FOREACH j IN items %][% j %][% LAST IF condition %][% NEXT UNLESS otherCondition %][% END %]
 [% WHILE 0 %]never[% END %]
 
-[% INCLUDE mytext FILTER html %] [% INCLUDE mytext | html %]
+[% INCLUDE mytext FILTER html %]
+[% INCLUDE mytext | html %]
 [% FILTER html %]
   HTML text
 [% END %]
@@ -66,8 +69,8 @@
 [% END %]
 
 [% PERL %]
-    $stash->set(foo => 'bar');
-    print "foo value: ", $stash->get('foo');
+  $stash->set(foo => 'bar');
+  print "foo value: ", $stash->get('foo');
 [% END %]
 
 [% RAWPERL %]
@@ -78,9 +81,9 @@
 
 [% TRY %]
   [% THROW test 'test' %]
-[% CATCH test %] 
+[% CATCH test %]
   test1
-[% CATCH that %] 
+[% CATCH that %]
   test2
 [% FINAL %]
   All done!
@@ -97,7 +100,7 @@
 [% END %]
 
 [% META
-     title   = 'The Cat in the Hat'
+    title   = 'The Cat in the Hat'
      author  = 'Dr. Seuss'
      version = 1.23 
      year    = 2000

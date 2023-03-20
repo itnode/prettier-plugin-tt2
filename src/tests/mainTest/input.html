@@ -42,6 +42,8 @@ A
 B
 [% END %]
 
+[% FOREACH j IN items %][% j %][% LAST IF condition %]
+[% NEXT UNLESS otherCondition %][% END %]
 [% FOREACH j IN items %][% j %][% LAST IF condition %][% NEXT UNLESS otherCondition %][% END %]
 [% WHILE 0 %]never[% END %]
 
@@ -83,7 +85,7 @@ All done!
 [% END %]
 
 [% META
-     title   = 'The Cat in the Hat'
+    title   = 'The Cat in the Hat'
      author  = 'Dr. Seuss'
      version = 1.23 
      year    = 2000
