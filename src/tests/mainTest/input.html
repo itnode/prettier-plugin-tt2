@@ -29,10 +29,9 @@
 
 [% IF title %] 
 <span class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"></span>
-[% ELSE;
-      INCLUDE other/header  title="Some Other Title";
-   END
-%]
+[% ELSE %]
+[% INCLUDE other/header  title="Some Other Title"; %]
+[% END %]
 
 [% UNLESS 1 %]<div>[%+ DEFAULT v = 1 -%]</div>[% END %]
 
@@ -75,14 +74,13 @@ All done!
 
 [% TRY %]
    ...
-[% CATCH DBI ;
-     INCLUDE database/error.html ;
-   CATCH DBI.connect ;
-     INCLUDE database/connect.html ;
-   CATCH ; 
-     INCLUDE error.html ;
-   END
-%]
+[% CATCH DBI %]
+[% INCLUDE database/error.html %]
+[% CATCH DBI.connect %]
+[% INCLUDE database/connect.html %]
+[% CATCH %]
+[% INCLUDE error.html ; %]
+[% END %]
 
 [% META
      title   = 'The Cat in the Hat'

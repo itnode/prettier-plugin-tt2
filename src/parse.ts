@@ -2,7 +2,7 @@ import { Parser } from "prettier";
 import { createIdGenerator } from "./create-id-generator";
 
 const regexDirective = /\[(?<tag>[%*])(?<chompBegin>[+-])?(?<ignoreDirective>#)?[^\S\r\n]*(?<content>[\S\s]*?)[^\S\r\n]*(?<chompEnd>[+-])?\1\]|(?<unformattableScript><(script)((?!<)[\s\S])*>((?!<\/script)[\s\S])*?\[(?:[%*])[\s\S]*?<\/(script)>)|(?<unformattableStyle><(style)((?!<)[\s\S])*>((?!<\/style)[\s\S])*?\[(?:[%*])[\s\S]*?<\/(style)>)/g;
-const regexContent = /(?<!#.*|(?:LAST|NEXT|BREAK)\s+)(?<isMacro>MACRO\s(?<macroName>[\s\S]+?)\s)?(?:(?<keyword>(?<IgnoreDirectives>SET|GET)|(?<BlockStartBlock>(?:(?:SET\s+?)?\S+?\s+=\s?)?BLOCK)|(?<BlockStartIf>IF)|(?<BlockContinueIf>ELSIF|ELSE)|(?<BlockStartTry>TRY)|(?<BlockContinueTry>CATCH|FINAL)|(?<BlockStartSwitch>SWITCH)|(?<BlockContinueCase>CASE)|(?<BlockStartMisc>UNLESS|FOREACH|FOR|WHILE|WRAPPER|(?<![^;\s]+?\s+)FILTER)|(?<BlockStartPerl>PERL|RAWPERL)|(?<BlockEnd>END))(?:\s*;\s*|\s[\s\S]+?;\s*|(?:\s[\s\S]*?)?$))/g;
+const regexContent = /(?<!#.*|(?:LAST|NEXT|BREAK)\s+)(?<isMacro>MACRO\s(?<macroName>[\s\S]+?)\s)?(?:(?<keyword>(?<IgnoreDirectives>SET|GET)|(?<BlockStartBlock>(?:(?:SET\s+?)?\S+?\s+=\s?)?BLOCK)|(?<BlockStartIf>IF)|(?<BlockContinueIf>ELSIF|ELSE)|(?<BlockStartTry>TRY)|(?<BlockContinueTry>CATCH|FINAL)|(?<BlockStartSwitch>SWITCH)|(?<BlockContinueCase>CASE)|(?<BlockStartMisc>UNLESS|FOREACH|FOR|WHILE|WRAPPER|(?<![^;\s]+?\s+)FILTER)|(?<BlockStartPerl>PERL|RAWPERL)|(?<BlockEnd>END))(?:\s'[\s\S]*?')?(?:\s"[\s\S]*?")?(?:\s*;\s*|\s[\s\S]+?;\s*|(?:\s[\s\S]*?)?$))/g;
 
 
 enum KeyW {

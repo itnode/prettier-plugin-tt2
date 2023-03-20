@@ -143,7 +143,6 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
               : [
                   docNode.substring(0, docNode.indexOf(key)),
                   path.call<any,any,any>(print, "children", key),
-
                   docNode.substring(docNode.indexOf(key) + key.length),
                 ]
           ))

@@ -33,10 +33,9 @@
 
 [% IF title %]
   <span class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"></span>
-[% ELSE;
-      INCLUDE other/header  title="Some Other Title";
-   END
-%]
+[% ELSE %]
+  [% INCLUDE other/header  title="Some Other Title"; %]
+[% END %]
 
 [% UNLESS 1 %]<div>[%+ DEFAULT v = 1 -%]</div>[% END %]
 
@@ -61,9 +60,9 @@
 
 [% USE plugin %]
 [% MACRO header IF frames %]
-    [% INCLUDE frames/header %]
+  [% INCLUDE frames/header %]
 [% ELSE %]
-    [% INCLUDE header %]
+  [% INCLUDE header %]
 [% END %]
 
 [% PERL %]
@@ -72,31 +71,30 @@
 [% END %]
 
 [% RAWPERL %]
-    $output .= "Some output\n";
-    ...
-    $output .= "Some more output\n";
+  $output .= "Some output\n";
+  ...
+  $output .= "Some more output\n";
 [% END %]
 
 [% TRY %]
-    [% THROW test 'test' %]
+  [% THROW test 'test' %]
 [% CATCH test %] 
-   test1
+  test1
 [% CATCH that %] 
-   test2
+  test2
 [% FINAL %]
-   All done!
+  All done!
 [% END %]
 
 [% TRY %]
-   ...
-[% CATCH DBI ;
-     INCLUDE database/error.html ;
-   CATCH DBI.connect ;
-     INCLUDE database/connect.html ;
-   CATCH ; 
-     INCLUDE error.html ;
-   END
-%]
+  ...
+[% CATCH DBI %]
+  [% INCLUDE database/error.html %]
+[% CATCH DBI.connect %]
+  [% INCLUDE database/connect.html %]
+[% CATCH %]
+  [% INCLUDE error.html ; %]
+[% END %]
 
 [% META
      title   = 'The Cat in the Hat'
