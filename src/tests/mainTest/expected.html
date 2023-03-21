@@ -1,6 +1,7 @@
 [% UNLESS def %]
   [% def = 1 %]
   [% SET def %]
+  [% SET def1 %]
 [% END %]
 
 [* IF inclOne *]
@@ -32,11 +33,12 @@
 %]
 
 [% IF title %]
-  <span class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"></span>
-[% ELSE;
-      INCLUDE other/header  title="Some Other Title";
-   END
-%]
+  <span
+    class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"
+  ></span>
+[% ELSE %]
+  [% INCLUDE other/header  title="Some Other Title"; %]
+[% END %]
 
 [% UNLESS 1 %]<div>[%+ DEFAULT v = 1 -%]</div>[% END %]
 
@@ -48,58 +50,58 @@
 [% END %]
 
 [% FOREACH j IN items %]
-  [% j %]
-  [% LAST IF condition %]
+  [% j %][% LAST IF condition %]
   [% NEXT UNLESS otherCondition %]
 [% END %]
+[% FOREACH j IN items %][% j %][% LAST IF condition %][% NEXT UNLESS otherCondition %][% END %]
 [% WHILE 0 %]never[% END %]
 
-[% INCLUDE mytext FILTER html %] [% INCLUDE mytext | html %]
+[% INCLUDE mytext FILTER html %]
+[% INCLUDE mytext | html %]
 [% FILTER html %]
   HTML text
 [% END %]
 
 [% USE plugin %]
 [% MACRO header IF frames %]
-    [% INCLUDE frames/header %]
+  [% INCLUDE frames/header %]
 [% ELSE %]
-    [% INCLUDE header %]
+  [% INCLUDE header %]
 [% END %]
 
 [% PERL %]
-    $stash->set(foo => 'bar');
-    print "foo value: ", $stash->get('foo');
+  $stash->set(foo => 'bar');
+  print "foo value: ", $stash->get('foo');
 [% END %]
 
 [% RAWPERL %]
-    $output .= "Some output\n";
-    ...
-    $output .= "Some more output\n";
+  $output .= "Some output\n";
+  ...
+  $output .= "Some more output\n";
 [% END %]
 
 [% TRY %]
-    [% THROW test 'test' %]
-[% CATCH test %] 
-   test1
-[% CATCH that %] 
-   test2
+  [% THROW test 'test' %]
+[% CATCH test %]
+  test1
+[% CATCH that %]
+  test2
 [% FINAL %]
-   All done!
+  All done!
 [% END %]
 
 [% TRY %]
-   ...
-[% CATCH DBI ;
-     INCLUDE database/error.html ;
-   CATCH DBI.connect ;
-     INCLUDE database/connect.html ;
-   CATCH ; 
-     INCLUDE error.html ;
-   END
-%]
+  ...
+[% CATCH DBI %]
+  [% INCLUDE database/error.html %]
+[% CATCH DBI.connect %]
+  [% INCLUDE database/connect.html %]
+[% CATCH %]
+  [% INCLUDE error.html ; %]
+[% END %]
 
 [% META
-     title   = 'The Cat in the Hat'
+    title   = 'The Cat in the Hat'
      author  = 'Dr. Seuss'
      version = 1.23 
      year    = 2000

@@ -1,6 +1,7 @@
 [% UNLESS def %]
                     [% def = 1 %]
 [% SET def %]
+[% SET def1 %]
 [% END %]
 
 [* IF inclOne *]
@@ -29,10 +30,9 @@
 
 [% IF title %] 
 <span class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"></span>
-[% ELSE;
-      INCLUDE other/header  title="Some Other Title";
-   END
-%]
+[% ELSE %]
+[% INCLUDE other/header  title="Some Other Title"; %]
+[% END %]
 
 [% UNLESS 1 %]<div>[%+ DEFAULT v = 1 -%]</div>[% END %]
 
@@ -43,6 +43,8 @@ A
 B
 [% END %]
 
+[% FOREACH j IN items %][% j %][% LAST IF condition %]
+[% NEXT UNLESS otherCondition %][% END %]
 [% FOREACH j IN items %][% j %][% LAST IF condition %][% NEXT UNLESS otherCondition %][% END %]
 [% WHILE 0 %]never[% END %]
 
@@ -75,17 +77,16 @@ All done!
 
 [% TRY %]
    ...
-[% CATCH DBI ;
-     INCLUDE database/error.html ;
-   CATCH DBI.connect ;
-     INCLUDE database/connect.html ;
-   CATCH ; 
-     INCLUDE error.html ;
-   END
-%]
+[% CATCH DBI %]
+[% INCLUDE database/error.html %]
+[% CATCH DBI.connect %]
+[% INCLUDE database/connect.html %]
+[% CATCH %]
+[% INCLUDE error.html ; %]
+[% END %]
 
 [% META
-     title   = 'The Cat in the Hat'
+    title   = 'The Cat in the Hat'
      author  = 'Dr. Seuss'
      version = 1.23 
      year    = 2000
