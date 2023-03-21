@@ -198,7 +198,8 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   }));
 
   if (isRoot(node)) {
-    return [mapped, builders.hardline];
+    return mapped;
+    //return [mapped, builders.hardline]; //TODO: Soll am Ende immer eine Leerezeile sein (so war es bisher) oder nicht.
   }
 
   const startStatement = path.call(print, "start");
@@ -239,7 +240,13 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
       ? builders.hardline
       : "";
 
-  return builders.group([builders.group(result), emptyLine], { shouldBreak: true });
+  if (node.start.statement.includes("UNLESS def")) {
+    console.log(node.content);
+  }
+
+  return builders.group([builders.group(result), emptyLine], { 
+    shouldBreak: !!node.end && hasNodeLinebreak(node.end, options.originalText)
+  });
 };
 
 type PrintFn = (path: AstPath<TT2Node>) => builders.Doc;

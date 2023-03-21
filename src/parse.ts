@@ -9,6 +9,7 @@ export enum KeyW {
   SimpleDirective,
   StartBlock,
   ContinueBlock,
+  SwitchBlock,
   CaseBlock,
   EndBlock,
 
@@ -59,7 +60,7 @@ function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
 
     } else if (ig.BlockStartSwitch) {
 
-      res.push(KeyW.StartBlock);
+      res.push(KeyW.SwitchBlock);
       openedBlocks += 1;
 
     } else if (ig.BlockContinueCase) {
@@ -109,23 +110,12 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
   const getId = createIdGenerator();
 
   for (let match of text.matchAll(regex)) {
-    const current = last(nodeStack);
-    const keywordArr = handleTT2Dir(match);//match.groups?.keyword as TT2BlockKeyword | undefined;
-
-    const statement = match.groups?.content;
-    const unformattable =
-      match.groups?.unformattableScript ?? match.groups?.unformattableStyle;
-
-    const startDelimiter = ((match.groups?.tag ?? "") + (match.groups?.chompBegin ?? "")) + (match.groups?.ignoreDirective ?? "") as TT2InlineStartDelimiter;
-    const endDelimiter = ((match.groups?.chompEnd ?? "") + (match.groups?.tag ?? "")) as TT2InlineEndDelimiter;
-
-    if (current === undefined) {
-      throw Error("Node stack empty.");
-    }
-
     if (match.index === undefined) {
       throw Error("Regex match index undefined.");
     }
+
+    const [current,keywordArr,statement,unformattable,startDelimiter,endDelimiter] = getCurrentNodeAndKeyWords(nodeStack,match);
+
     const id = getId();
     if (unformattable) {
       current.children[id] = {
@@ -162,22 +152,65 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           throw Error("Encountered unexpected end keyword.");
         }
   
-        current.length = match[0].length + match.index - current.index;
-        current.content = text.substring(current.contentStart, match.index);
-        current.aliasedContent = aliasNodeContent(current);
-        current.end = inline;
-  
-        if (current.parent.type === "double-block") {
-          const firstChild = current.parent.blocks[0];
-          const lastChild =
-            current.parent.blocks[current.parent.blocks.length - 1];
-  
-          current.parent.length =
-            lastChild.index + lastChild.length - firstChild.index;
+        if (current.keyword !== KeyW.CaseBlock) {
+          current.length = match[0].length + match.index - current.index;
+          current.content = text.substring(current.contentStart, match.index);
+          current.aliasedContent = aliasNodeContent(current);
+          current.end = inline;
+    
+          if (current.parent.type === "double-block") {
+            const firstChild = current.parent.blocks[0];
+            const lastChild =
+              current.parent.blocks[current.parent.blocks.length - 1];
+    
+            current.parent.length =
+              lastChild.index + lastChild.length - firstChild.index;
+          }
+    
+          nodeStack.pop();
+        } else {
+          current.length = match.index - current.index;
+          current.content = text.substring(current.contentStart,match.index);
+          current.aliasedContent = aliasNodeContent(current);
+
+          if (current.parent.type === "double-block") {
+            const firstChild = current.parent.blocks[0];
+            const lastChild =
+              current.parent.blocks[current.parent.blocks.length - 1];
+    
+            current.parent.length =
+              lastChild.index + lastChild.length - firstChild.index;
+          }
+
+          nodeStack.pop();
+
+          const [outer_current,outer_keywordArr,outer_statement,outer_unformattable,outer_startDelimiter,outer_endDelimiter] = getCurrentNodeAndKeyWords(nodeStack,match);
+
+          if (outer_current.type !== "block") {
+            throw Error("Encountered unexpected end keyword.");
+          }
+
+          inline.parent = outer_current;
+
+          outer_current.length = match[0].length + match.index - outer_current.index;
+          outer_current.content = text.substring(outer_current.contentStart, match.index);
+          outer_current.aliasedContent = aliasNodeContent(outer_current);
+          outer_current.end = inline;
+    
+          if (outer_current.parent.type === "double-block") {
+            const firstChild = outer_current.parent.blocks[0];
+            const lastChild =
+            outer_current.parent.blocks[outer_current.parent.blocks.length - 1];
+    
+            outer_current.parent.length =
+              lastChild.index + lastChild.length - firstChild.index;
+          }
+
+          nodeStack.pop();
         }
-  
-        nodeStack.pop();
-      } else if (isBlock(current) && (keyword === KeyW.ContinueBlock || keyword == KeyW.CaseBlock)) {
+
+        
+      } else if (isBlock(current) && (keyword === KeyW.ContinueBlock || (keyword == KeyW.CaseBlock && current.keyword == KeyW.CaseBlock))) {
         const nextChild: TT2Block = {
           type: "block",
           start: inline,
@@ -224,7 +257,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
   
         nodeStack.pop();
         nodeStack.push(nextChild);
-      } else if (keyword === KeyW.StartBlock || keyword === KeyW.PerlBlock) {
+      } else if (keyword === KeyW.StartBlock || keyword === KeyW.PerlBlock || keyword === KeyW.SwitchBlock || (keyword === KeyW.CaseBlock)) {
         const block: TT2Block = {
           type: "block",
           start: inline,
@@ -241,6 +274,8 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
           startDelimiter,
           endDelimiter
         };
+
+        inline.parent = block;
 
         current.children[block.id] = block;
         nodeStack.push(block);
@@ -261,6 +296,24 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
 
   return root;
 };
+
+function getCurrentNodeAndKeyWords(nodeStack: (TT2Block | TT2Root)[],match: RegExpMatchArray): [TT2Block | TT2Root, KeyW[], string | undefined, string | undefined, TT2InlineStartDelimiter, TT2InlineEndDelimiter] {
+  const current = last(nodeStack);
+  const keywordArr = handleTT2Dir(match);
+
+  const statement = match.groups?.content;
+  const unformattable =
+    match.groups?.unformattableScript ?? match.groups?.unformattableStyle;
+
+  const startDelimiter = ((match.groups?.tag ?? "") + (match.groups?.chompBegin ?? "")) + (match.groups?.ignoreDirective ?? "") as TT2InlineStartDelimiter;
+  const endDelimiter = ((match.groups?.chompEnd ?? "") + (match.groups?.tag ?? "")) as TT2InlineEndDelimiter;
+  
+  if (current === undefined) {
+    throw Error("Node stack empty.");
+  }
+  
+  return [current, keywordArr, statement, unformattable, startDelimiter, endDelimiter];
+}
 
 function aliasNodeContent(current: TT2Block | TT2Root): string {
   let result = current.content;
