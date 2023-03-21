@@ -220,13 +220,10 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   }
   const content = proto_content;
   
-  //TODO: Testen ob hier Teil der Fehler entstehen
   const trimSplit = (!hasSomelineBreakInContent && node.aliasedContent.trim() !== node.aliasedContent)
         ? node.aliasedContent.split(node.aliasedContent.trim()) : [];
   const beforeContent = trimSplit.length > 0 ? trimSplit[0] : "";
   const afterContent = trimSplit.length > 1 ? trimSplit[1] : "";
-
-  //if (node.start.statement.includes("RAWPERL")) console.log(content,hasSomelineBreakInContent,"'"+afterContent+"'");
 
   const result: doc.builders.Doc = [
     startStatement,
@@ -242,13 +239,7 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
       ? builders.hardline
       : "";
 
-  if (isMultiBlock(node.parent)) {
-    return [result, emptyLine];
-  }
-
-  return builders.group([builders.group(result), emptyLine], { //TODO: Änderung rückgangig machen?
-    shouldBreak: true//!!node.end && hasNodeLinebreak(node.end, options.originalText),
-  });
+  return builders.group([builders.group(result), emptyLine], { shouldBreak: true });
 };
 
 type PrintFn = (path: AstPath<TT2Node>) => builders.Doc;
