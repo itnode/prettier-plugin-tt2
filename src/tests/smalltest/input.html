@@ -21,3 +21,8 @@ hallo4
 [% END %]
 [% IF test5 %]hi2[% ELSE %]hallo5
 [% END %]
+
+[% RAWPERL %]$output .= "Some output\n";
+   ...
+$output .= "Some more output\n";
+[% END %]

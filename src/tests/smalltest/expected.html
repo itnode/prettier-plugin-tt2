@@ -28,3 +28,9 @@
 [% ELSE %]
   hallo5
 [% END %]
+
+[% RAWPERL %]
+  $output .= "Some output\n";
+  ...
+  $output .= "Some more output\n";
+[% END %]

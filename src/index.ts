@@ -161,13 +161,6 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
     return null;
   }
 
-  /*if (hasPrettierIgnoreLine(node)) {
-    return options.originalText.substring(
-      options.locStart(node),
-      options.locEnd(node)
-    );
-  }*/
-
   if (node.type !== "block" && node.type !== "root") {
     return null;
   }
@@ -211,16 +204,9 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   const startStatement = path.call(print, "start");
   const endStatement = node.end ? path.call<any,any>(print, "end") : "";
 
-  /*if (isPrettierIgnoreBlock(node)) {
-    return [
-      utils.removeLines(path.call(print, "start")),
-      printPlainBlock(node.content),
-      endStatement,
-    ];
-  }*/
-
   const usePlainTextInner = node.keyword === KeyW.PerlBlock;
   const hasSomelineBreakInContent = node.subContentHasLinebreak;
+  const isContentEmpty = node.aliasedContent.trim() === "";
 
   let proto_content;
   if (usePlainTextInner) {
@@ -229,23 +215,25 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
       node.content;
   } else {
     proto_content = hasSomelineBreakInContent
-      ? builders.indent([builders.hardline, mapped])
+      ? (isContentEmpty ? builders.indent(mapped) : builders.indent([builders.hardline, mapped]) )
       : mapped;
   }
   const content = proto_content;
   
   //TODO: Testen ob hier Teil der Fehler entstehen
   const trimSplit = (!hasSomelineBreakInContent && node.aliasedContent.trim() !== node.aliasedContent)
-        ? node.aliasedContent.split(node.aliasedContent.trim()) : "";
+        ? node.aliasedContent.split(node.aliasedContent.trim()) : [];
   const beforeContent = trimSplit.length > 0 ? trimSplit[0] : "";
   const afterContent = trimSplit.length > 1 ? trimSplit[1] : "";
+
+  //if (node.start.statement.includes("RAWPERL")) console.log(content,hasSomelineBreakInContent,"'"+afterContent+"'");
 
   const result: doc.builders.Doc = [
     startStatement,
     beforeContent,
     content,
     afterContent,
-    hasSomelineBreakInContent && !usePlainTextInner ? builders.hardline : "",
+    hasSomelineBreakInContent /*&& !usePlainTextInner*/ /*&& !isContentEmpty*/ ? builders.hardline : "",
     endStatement,
   ];
 
@@ -335,17 +323,6 @@ function printStatement(
 ) {
   const space = addSpaces ? " " : "";
 
-  /*const content = shouldBreak
-    ? statement
-        .trim()
-        .split("\n")
-        .map((line, _, array) =>
-          array.indexOf(line) === array.length - 1
-            ? [line.trim(), builders.softline]
-            : builders.indent([line.trim(), builders.softline])
-        )
-    : [statement.trim()];*/
-
   return builders.group(
     [
       "[",
@@ -356,27 +333,8 @@ function printStatement(
       delimiter.end,
       "]",
     ],
-    /*{ shouldBreak }*/
   );
 }
-
-/*function hasPrettierIgnoreLine(node: TT2Node) {
-  if (isRoot(node)) {
-    return false;
-  }
-
-  const { parent, child } = getFirstBlockParent(node);
-
-  const regex = new RegExp(
-    `(?:<!--|{{).*?prettier-ignore.*?(?:-->|}})\n.*${child.id}`
-  );
-
-  return !!parent.aliasedContent.match(regex);
-}
-
-function isPrettierIgnoreBlock(node: TT2Node) {
-  return false;//isBlock(node) && node.keyword === "prettier-ignore-start";
-}*/
 
 function hasNodeLinebreak(node: TT2Inline, source: string) {
   const start = node.index + node.length;
@@ -455,13 +413,15 @@ function printUnformattablePlainBlock(text: string, hardlines = true): builders.
 function printIndentedPerlBlock(text: string): builders.Doc {
   const lines = text.split("\n");
 
+  let indexOfFirstLineIFShouldNothaveHardline = lines[0].trim() == "" ? 0 : -1;
+  let indexOfLastLineIFShouldNothaveHardline = lines[lines.length-1].trim() == "" ? lines.length - 1 : -1;
+
   return builders.indent([
     ...lines.map((content,i) =>
       [
-        i > 0 ? builders.hardline : "",
+        i > indexOfFirstLineIFShouldNothaveHardline && i !== indexOfLastLineIFShouldNothaveHardline ? builders.hardline : "",
         content.trim(),
       ]
     ),
-    builders.hardline,
   ]);
 }
