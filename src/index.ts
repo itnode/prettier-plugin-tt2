@@ -123,7 +123,7 @@ export const printers = {
       return ast;
     },
     print: (path, options: ExtendedParserOptions, print) => {
-      const node = path.getNode();    
+      const node = path.getNode();
 
       switch (node?.type) {
         case "inline":
@@ -282,8 +282,6 @@ function printInline(
   options: ExtendedParserOptions,
   print: PrintFn
 ): builders.Doc {
-
-
 
   const isBlockNode = isBlockEnd(node) || isBlockStart(node);
   const emptyLine =
