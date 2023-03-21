@@ -90,6 +90,10 @@ function handleTT2Dir(match: RegExpMatchArray): KeyW[] {
   return res;
 }
 
+let sourceNumber = 0;
+function getSourceNumber(): number {
+  return sourceNumber++;
+}
 
 export const parseTT2: Parser<TT2Node>["parse"] = (
   text,
@@ -245,6 +249,7 @@ export const parseTT2: Parser<TT2Node>["parse"] = (
   
           if ("children" in multiBlock.parent) {
             multiBlock.parent.children[multiBlock.id] = multiBlock;
+            
           } else {
             throw Error("Could not find child in parent.");
           }
@@ -321,11 +326,11 @@ function aliasNodeContent(current: TT2Block | TT2Root): string {
   Object.entries(current.children)
     .sort(([_, node1], [__, node2]) => node2.index - node1.index)
     .forEach(
-      ([id, node]) =>
-        (result =
-          result.substring(0, node.index - current.contentStart) +
-          id +
-          result.substring(node.index + node.length - current.contentStart))
+      ([id, node]) => {
+        result = result.substring(0, node.index - current.contentStart) +
+                  id +
+                  result.substring(node.index + node.length - current.contentStart);
+      }
     );
 
   return result;
@@ -422,5 +427,3 @@ export function isRoot(node: TT2Node): node is TT2Root {
 export function isUnformattable(node: TT2Node): node is TT2Root {
   return node.type === "unformattable";
 }
-
-declare function structuredClone(value: any): any;
