@@ -142,7 +142,7 @@ export const printers = {
       try {
         return embed(path, print, textToDoc, options);
       } catch (e) {
-        console.error("Formatting failed.", e);
+        console.error("Formatting failed. In Test:",options.filepath,"\n", e);
         throw e;
       }
     },
@@ -164,7 +164,7 @@ const embed: Exclude<Printer<TT2Node>["embed"], undefined> = (
   if (node.type !== "block" && node.type !== "root") {
     return null;
   }
-  
+
 
   const html = textToDoc(node.aliasedContent, {
     ...options,
@@ -347,8 +347,10 @@ function isFollowedByEmptyLine(node: TT2Inline, source: string) {
     .trim();
   const isLastNode = !!source.substring(start).match(/^\s*$/);
 
+  const hasContentBeforeLineBreak = !!(source.substring(start,firstLineBreak).trim());
+
   return (
-    firstLineBreak !== -1 && secondLineBreak !== -1 && !emptyLine && !isLastNode
+    firstLineBreak !== -1 && secondLineBreak !== -1 && !hasContentBeforeLineBreak && !emptyLine && !isLastNode
   );
 }
 
