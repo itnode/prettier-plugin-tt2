@@ -25,7 +25,13 @@ tests.forEach((test) =>
     const configPath = join(path, "config.json");
     const configString =
       existsSync(configPath) && readFileSync(configPath)?.toString();
-    const configObject = configString ? JSON.parse(configString) : {};
+    const configObject = Object.assign({
+      filepath: test,
+      printWidth: 8000,
+      bracketSameLine: true,
+    },configString ? JSON.parse(configString) : {});
+
+    
 
     const format = () => prettify(input, configObject);
 
