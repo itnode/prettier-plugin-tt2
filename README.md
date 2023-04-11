@@ -25,10 +25,14 @@ Example `.prettierrc`:
 If you dont want Linebreaks because of long Lines you could change the "printWidth" to some large value like 8000.
 
 <br/>
-# Update the Plugin
+
+## Update the Plugin
+
 * Reinstall the plugin with: `npm install -D prettier-plugin-tt2@latest`
 
-# It is possible to install Prettier globally but not recommended by Prettier.
+<br/>
+
+## It is possible to install Prettier globally but not recommended by Prettier.
 
 To install Prettier globally: 
 * `npm install -g prettier prettier-plugin-tt2@latest`
