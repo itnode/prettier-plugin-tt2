@@ -33,9 +33,7 @@
 %]
 
 [% IF title %]
-  <span
-    class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]"
-  ></span>
+  <span class="test [% IF isO; "O"; END %] [% IF isI %][% GET I %][% END %]" ></span>
 [% ELSE %]
   [% INCLUDE other/header  title="Some Other Title"; %]
 [% END %]
