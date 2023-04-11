@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-tt2",
-  "version": "0.0.13",
+  "version": "0.0.2",
   "description": "Prettier plugin for formatting Template Toolkit 2 templates.",
   "license": "MIT",
   "repository": {
